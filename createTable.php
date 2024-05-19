@@ -22,20 +22,17 @@ if ($conn->connect_error) {  ### si (if) la conexion falla eso quiere decir que 
 }
 
 ### Guardamos en una variable llamada $sql que contiene una cadena con la consulta SQL para crear una tabla llamada 'productos'.
-$sql = "CREATE TABLE productos ( #Iniciamos la creacion de la tabla llamada 'productos'
-        id INT AUTO_INCREMENT PRIMARY KEY, #Define una columna llamada 'id' de tipo entero, que se incrementa automaticamente con cada nuevo registro y la establece como clave primaria
-        `name` VARCHAR(255) NOT NULL, #Define una columna llamada 'name' de tipo cadena de texto, que no puede ser null
-       `desc` TEXT NOT NULL, #Define una columna llamada 'desc' de tipo texto, que no puede ser null
-        price DECIMAL(10, 2) NOT NULL, #Define una columna llamada 'price' de tipo decimal, con 10 digitos y 2 decimales, que no puede ser null
-        unitCount INT NOT NULL, #Define una columna 'unitCount' de tipo entero que no puede ser null
-        isAvailable BOOLEAN NOT NULL, #Define una columna 'isAvailable' de tipo booleano que no puede ser null
-        inStock INT NOT NULL #Define una columna 'inStock' de tipo entero que no puede ser null
-    );";
+$sql = "CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);";
 
 ### Ejecutaremos la consulta usando $conn que es la conexion a la base de datos y con el metodo query() enviaremos la variable $sql que contiene la cadena con la consulta SQL para crear una tabla llamada 'productos'.
 ### Manejamos la respuesta de la consulta usando un if y else
 if ($conn->query($sql) === TRUE) {  # si (if) la consulta se ejecuta con exito en la base de datos, es decir me regresa TRUE, ejecuta el siguiente codigo.
-    echo "Table 'productos' created successfully";
+    echo "Table 'users' created successfully";
 } else { # De lo contrario (else) la consulta no se ejecuta con exito en la base de datos, es decir me regresa FALSE, ejecuta el siguiente codigo.
     echo "Error creating table: " . $conn->error;
 }

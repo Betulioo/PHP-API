@@ -1,67 +1,55 @@
 <?php
-
-require_once "../config.php";
+require '../vendor/autoload.php';
+require '../config.php';
 require '../auth/middleware.php';
 
 jwtMiddleware();
 
-try {
-    // Conexión a la base de datos
-    $conn = new mysqli(DB_SERVER, DB_USER, DB_PASSWORD, DB_NAME);
+$conn = new mysqli(DB_SERVER, DB_USER, DB_PASSWORD, DB_NAME);
 
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
-    }
-
-    // Definimos el nombre de la tabla y sus columnas
-    $tableName = "categories";
-    $tableColumns = ["category_name"];
-
-    // Obtenemos el método HTTP de la solicitud (GET, POST, PUT, DELETE)
-    $method = $_SERVER['REQUEST_METHOD'];
-
-    // Inicializamos un array vacío para almacenar la respuesta
-    $response = [];
-
-    // Utilizamos un switch para manejar la petición HTTP
-    switch ($method) {
-        case 'GET':
-            handleGetRequest($conn, $tableName);
-            break;
-
-        case 'PUT':
-            handlePutRequest($conn, $tableName, $tableColumns);
-            break;
-
-        case 'POST':
-            handlePostRequest($conn, $tableName, $tableColumns);
-            break;
-
-        case 'DELETE':
-            handleDeleteRequest($conn, $tableName);
-            break;
-
-        default:
-            $response = ["METHOD" => $method, "SUCCESS" => false, "ERROR" => "Method not supported"];
-            echo json_encode($response);
-            break;
-    }
-} catch (Exception $e) {
-    // Captura y manejo de excepciones
-    echo json_encode(["SUCCESS" => false, "ERROR" => $e->getMessage()]);
-} finally {
-    // Cierre de la conexión a la base de datos
-    $conn->close();
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
 }
 
-// Función para manejar solicitudes GET
+$tableName = "users";
+$tableColumns = ["username", "password"];
+
+$method = $_SERVER['REQUEST_METHOD'];
+$response = [];
+
+switch ($method) {
+    case 'GET':
+        handleGetRequest($conn, $tableName);
+        break;
+
+    case 'PUT':
+        handlePutRequest($conn, $tableName, $tableColumns);
+        break;
+
+    case 'POST':
+        handlePostRequest($conn, $tableName, $tableColumns);
+        break;
+
+    case 'DELETE':
+        handleDeleteRequest($conn, $tableName);
+        break;
+
+    default:
+        $response = ["METHOD" => $method, "SUCCESS" => false, "ERROR" => "Method not supported"];
+        echo json_encode($response);
+        break;
+}
+
+$conn->close();
+
+// Funciones para manejar solicitudes GET
 function handleGetRequest($conn, $tableName)
 {
     $response = [];
     if (isset($_GET['id'])) {
         $id = $_GET['id'];
         if (filter_var($id, FILTER_VALIDATE_INT) !== false) {
-            $stmt = $conn->prepare("SELECT * FROM $tableName WHERE id = ?");
+            $stmt = $conn->prepare("SELECT id, username, created_at FROM $tableName WHERE id = ?");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -72,7 +60,7 @@ function handleGetRequest($conn, $tableName)
             $response = ["METHOD" => "GET", "SUCCESS" => false, "ERROR" => "The parameter id must be an integer"];
         }
     } else {
-        $stmt = $conn->prepare("SELECT * FROM $tableName");
+        $stmt = $conn->prepare("SELECT id, username, created_at FROM $tableName");
         $stmt->execute();
         $result = $stmt->get_result();
         $rows = [];
@@ -96,15 +84,25 @@ function handlePutRequest($conn, $tableName, $tableColumns)
             $validData = validateAndSanitizeData($data, $tableColumns);
 
             if ($validData['success']) {
-                $sql = "UPDATE $tableName SET " . implode(", ", $validData['values']) . " WHERE id = ?";
+                // Codificar la contraseña si está presente en los datos
+                if (isset($validData['data']['password'])) {
+                    $validData['data']['password'] = password_hash($validData['data']['password'], PASSWORD_DEFAULT);
+                }
+
+                $values = [];
+                foreach ($validData['data'] as $column => $value) {
+                    $values[] = "$column = ?";
+                }
+
+                $sql = "UPDATE $tableName SET " . implode(", ", $values) . " WHERE id = ?";
                 $stmt = $conn->prepare($sql);
-                $types = str_repeat('s', count($tableColumns)) . 'i';
+                $types = str_repeat('s', count($validData['data'])) . 'i';
                 $params = array_merge(array_values($validData['data']), [$id]);
                 $stmt->bind_param($types, ...$params);
                 $stmt->execute();
 
                 if ($stmt->affected_rows == 1) {
-                    $updatedRecordQuery = "SELECT * FROM $tableName WHERE id = ?";
+                    $updatedRecordQuery = "SELECT id, username, created_at FROM $tableName WHERE id = ?";
                     $stmt = $conn->prepare($updatedRecordQuery);
                     $stmt->bind_param('i', $id);
                     $stmt->execute();
@@ -133,6 +131,9 @@ function handlePostRequest($conn, $tableName, $tableColumns)
     $validData = validateAndSanitizeData($data, $tableColumns);
 
     if ($validData['success']) {
+        // Codificar la contraseña
+        $validData['data']['password'] = password_hash($validData['data']['password'], PASSWORD_DEFAULT);
+
         $sql = "INSERT INTO $tableName (" . implode(", ", $validData['columns']) . ") VALUES (" . str_repeat('?,', count($validData['columns']) - 1) . "?);";
         $stmt = $conn->prepare($sql);
         $types = str_repeat('s', count($validData['columns']));
@@ -141,7 +142,7 @@ function handlePostRequest($conn, $tableName, $tableColumns)
 
         if ($createResult) {
             $newRecordId = $stmt->insert_id;
-            $getRecordQuery = "SELECT * FROM $tableName where id = ?";
+            $getRecordQuery = "SELECT id, username, created_at FROM $tableName where id = ?";
             $stmt = $conn->prepare($getRecordQuery);
             $stmt->bind_param('i', $newRecordId);
             $stmt->execute();
@@ -164,21 +165,6 @@ function handleDeleteRequest($conn, $tableName)
     if (isset($_GET['id'])) {
         $id = $_GET['id'];
         if (filter_var($id, FILTER_VALIDATE_INT) !== false) {
-            // Primero eliminamos todos los registros en product_invoice relacionados con los productos de esta categoría
-            $deleteProductInvoicesSql = "DELETE pi FROM product_invoice pi JOIN products p ON pi.product_id = p.id WHERE p.category_id = ?";
-            $stmt = $conn->prepare($deleteProductInvoicesSql);
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
-            $stmt->close();
-
-            // Luego eliminamos todos los productos relacionados con esta categoría
-            $deleteProductsSql = "DELETE FROM products WHERE category_id = ?";
-            $stmt = $conn->prepare($deleteProductsSql);
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
-            $stmt->close();
-
-            // Ahora eliminamos la categoría
             $sql = "DELETE FROM $tableName WHERE id = ?";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param('i', $id);
