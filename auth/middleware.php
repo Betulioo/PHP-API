@@ -31,3 +31,11 @@ function jwtMiddleware()
         exit;
     }
 }
+function requireRole($role)
+{
+    if (!isset($_SERVER['user']) || $_SERVER['user']->role !== $role) {
+        http_response_code(403);
+        echo json_encode(["error" => "Access denied", "debug" => $_SERVER['user']]);
+        exit;
+    }
+}

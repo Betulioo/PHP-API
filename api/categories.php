@@ -4,7 +4,7 @@ require_once "../config.php";
 require '../auth/middleware.php';
 
 jwtMiddleware();
-
+requireRole('admin');
 try {
     // Conexión a la base de datos
     $conn = new mysqli(DB_SERVER, DB_USER, DB_PASSWORD, DB_NAME);

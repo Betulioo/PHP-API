@@ -102,7 +102,7 @@ function handlePutRequest($conn, $tableName, $tableColumns)
                 $stmt->execute();
 
                 if ($stmt->affected_rows == 1) {
-                    $updatedRecordQuery = "SELECT id, username, created_at FROM $tableName WHERE id = ?";
+                    $updatedRecordQuery = "SELECT id, username, role, created_at FROM $tableName WHERE id = ?";
                     $stmt = $conn->prepare($updatedRecordQuery);
                     $stmt->bind_param('i', $id);
                     $stmt->execute();
@@ -142,7 +142,7 @@ function handlePostRequest($conn, $tableName, $tableColumns)
 
         if ($createResult) {
             $newRecordId = $stmt->insert_id;
-            $getRecordQuery = "SELECT id, username, created_at FROM $tableName where id = ?";
+            $getRecordQuery = "SELECT id, username,role, created_at FROM $tableName where id = ?";
             $stmt = $conn->prepare($getRecordQuery);
             $stmt->bind_param('i', $newRecordId);
             $stmt->execute();

@@ -12,15 +12,15 @@ if ($conn->connect_error) {
 $data = json_decode(file_get_contents("php://input"), true);
 $username = $data['username'];
 $password = $data['password'];
-
+$role = $data['role'];
 // Validar datos
 if (!empty($username) && !empty($password)) {
     // Codificar la contraseña
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
     // Insertar el usuario en la base de datos
-    $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-    $stmt->bind_param('ss', $username, $hashedPassword);
+    $stmt = $conn->prepare("INSERT INTO users (username, password,role) VALUES (?, ?,?)");
+    $stmt->bind_param('sss', $username, $hashedPassword, $role);
 
     if ($stmt->execute()) {
         echo json_encode(["message" => "User created successfully"]);
